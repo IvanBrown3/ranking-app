@@ -6,18 +6,13 @@ import { useRanking } from "./hooks/useRanking";
 import { SPOTIFY_THEME } from "./constants/theme";
 
 function App() {
-    const { currentPair, ranking, progress, handleVote, isComplete } =
-        useRanking();
+    const { currentPair, ranking, handleVote } = useRanking();
 
     return (
         <div
             className="flex min-h-screen w-full"
             style={{ background: SPOTIFY_THEME.black }}>
-            <PairwiseArena
-                currentPair={currentPair}
-                progress={progress}
-                onVote={handleVote}
-            />
+            <PairwiseArena currentPair={currentPair} onVote={handleVote} />
             <RankingList ranking={ranking} />
         </div>
     );
