@@ -1,7 +1,9 @@
 import type { Matchup } from "../types";
 
 /**
- * Implements the Rank Centrality algorithm for ranking items based on pairwise comparisons
+ * Implements an improved Rank Centrality algorithm for ranking items.
+ * This version gives more weight to earlier wins and uses a PageRank-style
+ * calculation where winning against highly-ranked items boosts an item's score.
  * @param items - Array of items to rank
  * @param matchups - Array of matchup results with winners and losers
  * @returns Array of items with their ranking scores, sorted by score (descending)
@@ -11,46 +13,75 @@ export function rankCentrality(
     matchups: Matchup[]
 ): { song: string; score: number }[] {
     const n = items.length;
+    if (n === 0) {
+        return [];
+    }
     const idx = Object.fromEntries(
         items.map((item: string, i: number) => [item, i])
     );
 
-    // Build win matrix
+    // 1. Build a weighted win matrix (W).
+    // W[i][j] stores the total weight of wins of item i over item j.
     const W: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
-    matchups.forEach(({ winner, loser }: Matchup) => {
-        W[idx[winner]][idx[loser]] += 1;
+    const totalMatchups = matchups.length;
+    matchups.forEach(({ winner, loser }: Matchup, i: number) => {
+        // Apply a decaying weight to wins. Wins that occur earlier in the `matchups`
+        // array are given a higher weight. This causes items selected early in the
+        // process to be "jumped up" the ranking list. The weight decays linearly.
+        const weight = totalMatchups - i;
+        W[idx[winner]][idx[loser]] += weight;
     });
 
-    // Build transition matrix
+    // 2. Build a column-stochastic transition matrix (P).
+    // P[i][j] is the probability of transitioning from item j to item i.
+    // This transition represents a "vote" from the loser (j) to the winner (i).
     const P: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
-    for (let i = 0; i < n; i++) {
-        let rowSum = 0;
-        for (let j = 0; j < n; j++) {
-            if (i !== j) {
-                P[i][j] = W[i][j] + 1; // Laplace smoothing
-                rowSum += P[i][j];
-            }
+    const dampingFactor = 0.85; // Standard PageRank damping factor
+
+    for (let j = 0; j < n; j++) { // For each item j (column)
+        let totalLossWeight = 0;
+        for (let i = 0; i < n; i++) {
+            totalLossWeight += W[i][j];
         }
-        for (let j = 0; j < n; j++) {
-            if (i !== j) P[i][j] /= rowSum || 1;
+
+        for (let i = 0; i < n; i++) {
+            if (totalLossWeight > 0) {
+                // Standard transition: based on weighted wins.
+                P[i][j] = W[i][j] / totalLossWeight;
+            } else {
+                // Handle undefeated items (rank sinks): assume they link to all other items equally.
+                P[i][j] = 1 / n;
+            }
         }
     }
 
-    // Power iteration
-    let v: number[] = Array(n).fill(1 / n);
+    // 3. Power iteration to find the principal eigenvector (the ranking scores).
+    // This is analogous to Google's PageRank algorithm.
+    let v: number[] = Array.from({ length: n }, () => 1 / n); // Initial guess
+    
     for (let iter = 0; iter < 100; iter++) {
         const vNew: number[] = Array(n).fill(0);
-        for (let i = 0; i < n; i++) {
-            for (let j = 0; j < n; j++) {
-                if (i !== j) vNew[j] += v[i] * P[i][j];
+        for (let i = 0; i < n; i++) { // For each item i
+            for (let j = 0; j < n; j++) { // Sum contributions from items j that lost to i
+                vNew[i] += v[j] * P[i][j];
             }
         }
-        const norm = vNew.reduce((a, b) => a + b, 0);
-        v = vNew.map((x) => x / (norm || 1));
+        
+        // Normalize and apply damping factor
+        const norm = vNew.reduce((a, b) => a + b, 0) || 1;
+        for (let i = 0; i < n; i++) {
+            const teleport = (1 - dampingFactor) / n;
+            v[i] = dampingFactor * (vNew[i] / norm) + teleport;
+        }
     }
 
-    return items.map((item: string, i: number) => ({
+    const results = items.map((item: string, i: number) => ({
         song: item,
         score: v[i],
     }));
+
+    // 4. Sort results by score in descending order
+    results.sort((a, b) => b.score - a.score);
+
+    return results;
 }

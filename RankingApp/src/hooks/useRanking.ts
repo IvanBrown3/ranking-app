@@ -32,6 +32,9 @@ export function useRanking() {
         currentPair,
         ranking,
         progress,
+        completedMatchups: playedPairs.length,
+        totalMatchups: pairs.length,
+        remainingMatchups: pairs.length - playedPairs.length,
         handleVote,
         isComplete: currentPair === null,
     };
