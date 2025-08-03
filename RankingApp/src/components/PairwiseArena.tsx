@@ -168,7 +168,7 @@ const SongCard: React.FC<{
                     {formatTime(
                         spotifyPlayer.currentTrack === song.uri && spotifyPlayer.duration > 0 
                             ? spotifyPlayer.duration / 1000 
-                            : 210
+                            : song.duration ? song.duration / 1000 : 0
                     )}
                 </span>
                 <button
