@@ -47,8 +47,8 @@ export const SONGS: Song[] = [
         id: '7',
         name: 'Stay',
         artist: 'The Kid LAROI, Justin Bieber',
-        spotifyId: '5PjdY0CKGZdEuoNab3yDmX',
-        uri: 'spotify:track:5PjdY0CKGZdEuoNab3yDmX'
+        spotifyId: '567e29TDzLwZwfDuEpGTwo',
+        uri: 'spotify:track:567e29TDzLwZwfDuEpGTwo'
     },
     {
         id: '8',

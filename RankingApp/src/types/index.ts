@@ -14,6 +14,7 @@ export interface Song {
     spotifyId: string;
     uri: string;
     imageUrl?: string;
+    duration?: number; // Duration in milliseconds
 }
 
 export interface SpotifyTrack {

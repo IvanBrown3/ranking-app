@@ -1,6 +1,8 @@
 import React from "react";
 import type { KeyboardEvent } from "react";
 import type { Song } from "../types";
+import useSpotifyPlayer from "../hooks/useSpotifyPlayer";
+import useSpotifyAuth from "../hooks/useSpotifyAuth";
 
 // NOTE: The SPOTIFY_THEME constant is not defined in this file.
 // Assuming it is defined elsewhere in your project, for example:
@@ -29,6 +31,16 @@ const PlayIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const PauseIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className={className}>
+        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+    </svg>
+);
+
 interface PairwiseArenaProps {
     currentPair: [Song, Song] | null;
     onVote: (winner: string, loser: string) => void;
@@ -50,8 +62,9 @@ const formatTime = (timeInSeconds: number): string => {
 const SongCard: React.FC<{
     song: Song;
     onClick: () => void;
-}> = ({ song, onClick }) => {
-    const mockDuration = 210; // Mock duration in seconds (e.g., 3:30)
+    spotifyPlayer: ReturnType<typeof useSpotifyPlayer>;
+    isAuthenticated: boolean;
+}> = ({ song, onClick, spotifyPlayer, isAuthenticated }) => {
 
     // A key handler for accessibility, allowing users to vote with the keyboard.
     const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -84,9 +97,28 @@ const SongCard: React.FC<{
                     )}
                 </div>
                 {/* Play button appears on hover over album art */}
-                <div className="absolute bottom-2 right-2 xl:bottom-3 xl:right-3 2xl:bottom-4 2xl:right-4 flex h-12 w-12 xl:h-14 xl:w-14 2xl:h-16 2xl:w-16 translate-y-2 items-center justify-center rounded-full bg-[#1DB954] text-black shadow-lg opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus:translate-y-0 group-focus:opacity-100">
-                    <PlayIcon className="h-6 w-6 xl:h-7 xl:w-7 2xl:h-8 2xl:w-8" />
-                </div>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isAuthenticated || !spotifyPlayer.isReady) return;
+                        
+                        const isCurrentTrack = spotifyPlayer.currentTrack === song.uri;
+                        if (isCurrentTrack && spotifyPlayer.isPlaying) {
+                            spotifyPlayer.pauseTrack();
+                        } else if (isCurrentTrack && !spotifyPlayer.isPlaying) {
+                            spotifyPlayer.resumeTrack();
+                        } else {
+                            spotifyPlayer.playTrack(song.uri);
+                        }
+                    }}
+                    disabled={!isAuthenticated || !spotifyPlayer.isReady}
+                    className="absolute bottom-2 right-2 xl:bottom-3 xl:right-3 2xl:bottom-4 2xl:right-4 flex h-12 w-12 xl:h-14 xl:w-14 2xl:h-16 2xl:w-16 translate-y-2 items-center justify-center rounded-full bg-[#1DB954] text-black shadow-lg opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus:translate-y-0 group-focus:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {spotifyPlayer.currentTrack === song.uri && spotifyPlayer.isPlaying ? (
+                        <PauseIcon className="h-6 w-6 xl:h-7 xl:w-7 2xl:h-8 2xl:w-8" />
+                    ) : (
+                        <PlayIcon className="h-6 w-6 xl:h-7 xl:w-7 2xl:h-8 2xl:w-8" />
+                    )}
+                </button>
             </div>
 
             {/* Song Info */}
@@ -97,22 +129,72 @@ const SongCard: React.FC<{
                 <p className="text-sm xl:text-base 2xl:text-lg text-gray-400">{song.artist}</p>
             </div>
 
-            {/* Static, Stateless Music Player */}
-            <div className="mt-4 xl:mt-6 2xl:mt-8 flex items-center gap-3">
-                <span className="shrink-0 text-xs xl:text-sm 2xl:text-base text-gray-400">0:00</span>
-                <div className="h-1 xl:h-1.5 2xl:h-2 w-full flex-grow rounded-full bg-gray-700">
-                    {/* Static progress bar at 0% */}
-                    <div className="h-1 xl:h-1.5 2xl:h-2 w-0 rounded-full bg-[#1DB954]"></div>
+            {/* Functional Music Player - Safe Area */}
+            <div 
+                className="mt-4 xl:mt-6 2xl:mt-8 p-2 -m-2 rounded-lg" 
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-3">
+                <span className="shrink-0 text-xs xl:text-sm 2xl:text-base text-gray-400">
+                    {formatTime(spotifyPlayer.currentTrack === song.uri ? spotifyPlayer.position / 1000 : 0)}
+                </span>
+                <div 
+                    className="h-1 xl:h-1.5 2xl:h-2 w-full flex-grow rounded-full bg-gray-700 cursor-pointer hover:bg-gray-600 transition-colors"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isAuthenticated || !spotifyPlayer.isReady || spotifyPlayer.currentTrack !== song.uri || spotifyPlayer.duration === 0) {
+                            return;
+                        }
+                        
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const clickX = e.clientX - rect.left;
+                        const progressPercentage = clickX / rect.width;
+                        const seekPosition = Math.max(0, Math.min(spotifyPlayer.duration, progressPercentage * spotifyPlayer.duration));
+                        
+                        spotifyPlayer.seekToPosition(seekPosition);
+                    }}
+                >
+                    {/* Dynamic progress bar */}
+                    <div 
+                        className="h-1 xl:h-1.5 2xl:h-2 rounded-full bg-[#1DB954] transition-all duration-300 pointer-events-none"
+                        style={{ 
+                            width: spotifyPlayer.currentTrack === song.uri && spotifyPlayer.duration > 0 && spotifyPlayer.position >= 0
+                                ? `${Math.min(100, Math.max(0, (spotifyPlayer.position / spotifyPlayer.duration) * 100))}%` 
+                                : '0%' 
+                        }}
+                    ></div>
                 </div>
                 <span className="shrink-0 text-xs xl:text-sm 2xl:text-base text-gray-400">
-                    {formatTime(mockDuration)}
+                    {formatTime(
+                        spotifyPlayer.currentTrack === song.uri && spotifyPlayer.duration > 0 
+                            ? spotifyPlayer.duration / 1000 
+                            : 210
+                    )}
                 </span>
                 <button
-                    aria-label="Play"
-                    onClick={(e) => e.stopPropagation()} // Stop propagation to prevent voting
-                    className="cursor-default shrink-0 text-white/80">
-                    <PlayIcon className="h-5 w-5 xl:h-6 xl:w-6 2xl:h-7 2xl:w-7" />
+                    aria-label={spotifyPlayer.currentTrack === song.uri && spotifyPlayer.isPlaying ? "Pause" : "Play"}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isAuthenticated || !spotifyPlayer.isReady) return;
+                        
+                        const isCurrentTrack = spotifyPlayer.currentTrack === song.uri;
+                        if (isCurrentTrack && spotifyPlayer.isPlaying) {
+                            spotifyPlayer.pauseTrack();
+                        } else if (isCurrentTrack && !spotifyPlayer.isPlaying) {
+                            spotifyPlayer.resumeTrack();
+                        } else {
+                            spotifyPlayer.playTrack(song.uri);
+                        }
+                    }}
+                    disabled={!isAuthenticated || !spotifyPlayer.isReady}
+                    className="shrink-0 text-white/80 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    {spotifyPlayer.currentTrack === song.uri && spotifyPlayer.isPlaying ? (
+                        <PauseIcon className="h-5 w-5 xl:h-6 xl:w-6 2xl:h-7 2xl:w-7" />
+                    ) : (
+                        <PlayIcon className="h-5 w-5 xl:h-6 xl:w-6 2xl:h-7 2xl:w-7" />
+                    )}
                 </button>
+                </div>
             </div>
         </div>
     );
@@ -127,6 +209,8 @@ const PairwiseArena: React.FC<PairwiseArenaProps> = ({
     onVote,
 }) => {
     const primaryBg = SPOTIFY_THEME.black; // A dark, Spotify-like background
+    const { isAuthenticated } = useSpotifyAuth();
+    const spotifyPlayer = useSpotifyPlayer();
 
     return (
         <main
@@ -149,16 +233,28 @@ const PairwiseArena: React.FC<PairwiseArenaProps> = ({
                         <div className="flex flex-col items-center justify-center gap-8 md:flex-row md:gap-6 lg:gap-10 xl:gap-16 2xl:gap-20">
                             <SongCard
                                 song={currentPair[0]}
-                                onClick={() =>
-                                    onVote(currentPair[0].id, currentPair[1].id)
-                                }
+                                onClick={() => {
+                                    // Stop any playing track when a vote is made
+                                    if (spotifyPlayer.isPlaying) {
+                                        spotifyPlayer.pauseTrack();
+                                    }
+                                    onVote(currentPair[0].id, currentPair[1].id);
+                                }}
+                                spotifyPlayer={spotifyPlayer}
+                                isAuthenticated={isAuthenticated}
                             />
                             <div className="font-bold text-gray-500 text-xl xl:text-2xl 2xl:text-3xl">OR</div>
                             <SongCard
                                 song={currentPair[1]}
-                                onClick={() =>
-                                    onVote(currentPair[1].id, currentPair[0].id)
-                                }
+                                onClick={() => {
+                                    // Stop any playing track when a vote is made
+                                    if (spotifyPlayer.isPlaying) {
+                                        spotifyPlayer.pauseTrack();
+                                    }
+                                    onVote(currentPair[1].id, currentPair[0].id);
+                                }}
+                                spotifyPlayer={spotifyPlayer}
+                                isAuthenticated={isAuthenticated}
                             />
                         </div>
                     ) : (
