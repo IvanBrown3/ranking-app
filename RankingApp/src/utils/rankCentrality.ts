@@ -1,4 +1,4 @@
-import type { Matchup } from "../types";
+import type { Matchup, Song } from "../types";
 
 /**
  * Implements an improved Rank Centrality algorithm for ranking items.
@@ -9,15 +9,15 @@ import type { Matchup } from "../types";
  * @returns Array of items with their ranking scores, sorted by score (descending)
  */
 export function rankCentrality(
-    items: string[],
+    items: Song[],
     matchups: Matchup[]
-): { song: string; score: number }[] {
+): { song: Song; score: number }[] {
     const n = items.length;
     if (n === 0) {
         return [];
     }
     const idx = Object.fromEntries(
-        items.map((item: string, i: number) => [item, i])
+        items.map((item: Song, i: number) => [item.id, i])
     );
 
     // 1. Build a weighted win matrix (W).
@@ -75,7 +75,7 @@ export function rankCentrality(
         }
     }
 
-    const results = items.map((item: string, i: number) => ({
+    const results = items.map((item: Song, i: number) => ({
         song: item,
         score: v[i],
     }));

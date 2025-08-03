@@ -27,6 +27,7 @@ const styles = {
         textAlign: "center",
         width: "100%",
         padding: "1rem 1rem",
+        maxWidth: "28rem", // Increased from implicit constraint
     },
     title: {
         fontSize: "1.5rem",
@@ -39,7 +40,7 @@ const styles = {
         textAlign: "left",
         marginLeft: "auto",
         marginRight: "auto",
-        maxWidth: "20rem",
+        maxWidth: "24rem", // Increased from 20rem
         listStyle: "none",
         padding: 0,
     },
@@ -47,8 +48,8 @@ const styles = {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "0.5rem 0.75rem",
-        marginBottom: "0.375rem",
+        padding: "0.75rem 1rem", // Increased padding
+        marginBottom: "0.5rem", // Increased margin
         borderRadius: "0.5rem",
         transition: "transform 0.2s ease-in-out",
     },
@@ -58,6 +59,7 @@ const styles = {
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
+        fontSize: "1rem", // Made explicit and slightly larger
     },
     scoreText: {
         fontSize: "0.875rem",
@@ -65,12 +67,12 @@ const styles = {
         flexShrink: 0,
     },
     progressContainer: {
-        marginBottom: "1rem",
+        marginBottom: "1.5rem", // Increased margin
         width: "100%",
-        maxWidth: "20rem",
+        maxWidth: "24rem", // Increased from 20rem
         marginLeft: "auto",
         marginRight: "auto",
-        padding: "1rem",
+        padding: "1.25rem", // Increased padding
         background: "linear-gradient(135deg, rgba(29, 185, 84, 0.1) 0%, rgba(29, 185, 84, 0.05) 100%)",
         borderRadius: "12px",
         border: "1px solid rgba(29, 185, 84, 0.2)",
@@ -180,10 +182,22 @@ const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedM
                         };
 
                         return (
-                            <li key={song} style={listItemStyle}>
-                                <span style={styles.songText}>
-                                    {i + 1}. {song}
-                                </span>
+                            <li key={song.id} style={listItemStyle}>
+                                <div className="flex items-center gap-3">
+                                    {song.imageUrl && (
+                                        <img 
+                                            src={song.imageUrl} 
+                                            alt={`${song.name} album art`}
+                                            className="w-8 h-8 rounded object-cover"
+                                        />
+                                    )}
+                                    <span style={styles.songText}>
+                                        {i + 1}. {song.name}
+                                    </span>
+                                </div>
+                                <div className="text-xs opacity-70">
+                                    {song.artist}
+                                </div>
                                 <span style={styles.scoreText}>
                                     {score.toFixed(3)}
                                 </span>
