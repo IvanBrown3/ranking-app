@@ -8,7 +8,7 @@ interface SpotifyAuthResponse {
   scope: string;
 }
 
-interface SpotifyUserProfile {
+export interface SpotifyUserProfile {
   id: string;
   display_name: string;
   email: string;
@@ -294,6 +294,40 @@ class SpotifyService {
 
   getRedirectUri(): string {
     return this.redirectUri;
+  }
+
+  async getPlaylistTracks(playlistId: string): Promise<SpotifyTrack[]> {
+    const token = await this.getValidAccessToken();
+    if (!token) {
+      return [];
+    }
+
+    let allTracks: SpotifyTrack[] = [];
+    let nextUrl: string | null = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50`;
+
+    try {
+      while (nextUrl) {
+        const response = await fetch(nextUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch playlist tracks: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const tracks = data.items.map((item: any) => item.track).filter(Boolean);
+        allTracks = [...allTracks, ...tracks];
+        nextUrl = data.next;
+      }
+
+      return allTracks.filter((track: SpotifyTrack | null) => track !== null);
+    } catch (error) {
+      console.error('Error fetching playlist tracks:', error);
+      return [];
+    }
   }
 }
 

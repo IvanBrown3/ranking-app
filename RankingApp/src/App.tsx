@@ -1,14 +1,53 @@
 import { useEffect, useState } from "react";
+import { useDebounce } from "./hooks/useDebounce";
 import "./App.css";
 import PairwiseArena from "./components/PairwiseArena";
 import RankingList from "./components/RankingList";
-import SpotifySignIn from "./components/SpotifySignIn";
 import { useRanking } from "./hooks/useRanking";
 import { SPOTIFY_THEME } from "./constants/theme";
+import SpotifyService from "./services/SpotifyService";
+import type { Song, SpotifyTrack } from "./types";
+
+const spotifyService = new SpotifyService();
 
 function App() {
-    const { currentPair, ranking, progress, completedMatchups, totalMatchups, remainingMatchups, handleVote } = useRanking();
+    const { songs, currentPair, ranking, progress, completedMatchups, totalMatchups, remainingMatchups, handleVote, setSongs } = useRanking();
     const [authMessage, setAuthMessage] = useState<string | null>(null);
+    const [playlistUrl, setPlaylistUrl] = useState<string>("");
+    const debouncedPlaylistUrl = useDebounce(playlistUrl, 500); // 500ms debounce delay
+
+    const handlePlaylistLoad = async (url: string) => {
+        const playlistId = url.split('/').pop()?.split('?')[0];
+        if (playlistId) {
+            try {
+                const tracks: SpotifyTrack[] = await spotifyService.getPlaylistTracks(playlistId);
+                const newSongs: Song[] = tracks.map(track => ({
+                    id: track.id, // Using spotify track id as the main id
+                    spotifyId: track.id,
+                    name: track.name,
+                    artist: track.artists.map(a => a.name).join(', '),
+                    uri: track.uri,
+                    imageUrl: track.album.images[0]?.url || '',
+                }));
+                setSongs(newSongs);
+                setAuthMessage(`Loaded ${newSongs.length} songs from the playlist!`);
+                setTimeout(() => setAuthMessage(null), 3000);
+            } catch (error) {
+                console.error(error);
+                setAuthMessage("Failed to load playlist. Make sure the URL is correct and you're logged in.");
+                setTimeout(() => setAuthMessage(null), 5000);
+            }
+        } else {
+            setAuthMessage("Invalid Spotify playlist URL");
+            setTimeout(() => setAuthMessage(null), 3000);
+        }
+    };
+
+    useEffect(() => {
+        if (debouncedPlaylistUrl) {
+            handlePlaylistLoad(debouncedPlaylistUrl);
+        }
+    }, [debouncedPlaylistUrl]);
 
     useEffect(() => {
         // Handle URL parameters for authentication feedback
@@ -51,12 +90,14 @@ function App() {
                 </div>
             )}
             
-            {/* Spotify Sign-in Button - Absolute positioned overlay */}
-            <div className="absolute top-4 right-4 z-50">
-                <SpotifySignIn />
-            </div>
+
             
-            <PairwiseArena currentPair={currentPair} onVote={handleVote} />
+            <PairwiseArena 
+                currentPair={currentPair} 
+                onVote={handleVote} 
+                playlistUrl={playlistUrl}
+                onPlaylistUrlChange={setPlaylistUrl}
+            />
             <RankingList 
                 ranking={ranking} 
                 progress={progress} 

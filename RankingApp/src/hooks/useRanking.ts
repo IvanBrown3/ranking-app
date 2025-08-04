@@ -5,11 +5,12 @@ import { SONGS } from "../constants/songs";
 import useSongImages from "./useSongImages";
 
 export function useRanking() {
+    const [songs, setSongs] = useState<Song[]>(SONGS);
     const [matchups, setMatchups] = useState<Matchup[]>([]);
     const [playedPairs, setPlayedPairs] = useState<Pair[]>([]);
     
     // Get songs with images
-    const { songsWithImages, isLoading: imagesLoading } = useSongImages(SONGS);
+    const { songsWithImages, isLoading: imagesLoading } = useSongImages(songs);
 
     const pairs = useMemo(() => getAllPairs(songsWithImages), [songsWithImages]);
     const currentPair = useMemo(
@@ -56,5 +57,6 @@ export function useRanking() {
         isComplete: currentPair === null,
         imagesLoading,
         songs: songsWithImages,
+        setSongs,
     };
 }

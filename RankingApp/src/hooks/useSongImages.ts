@@ -27,24 +27,22 @@ const useSongImages = (songs: Song[]): UseSongImagesReturn => {
     setError(null);
 
     try {
-      // Extract Spotify track IDs from songs
-      const trackIds = songs.map(song => song.spotifyId);
-      console.log('Fetching track data for track IDs:', trackIds);
+      // Filter out invalid songs and extract Spotify track IDs
+      const trackIds = songs
+        .filter(song => song && song.spotifyId)
+        .map(song => song.spotifyId);
+
       
       // Fetch all tracks at once from Spotify
       const spotifyTracks = await spotifyService.getTracks(trackIds);
-      console.log('Received Spotify tracks:', spotifyTracks);
+
       
       // Create a map of track ID to Spotify track data
       const trackMap = new Map<string, SpotifyTrack>();
       spotifyTracks.forEach(track => {
         if (track) {
           trackMap.set(track.id, track);
-          console.log(`Track ${track.id} (${track.name}):`, {
-            images: track.album.images,
-            imageCount: track.album.images.length,
-            duration: track.duration_ms
-          });
+
         }
       });
 
@@ -54,7 +52,7 @@ const useSongImages = (songs: Song[]): UseSongImagesReturn => {
         if (spotifyTrack) {
           // Use the medium-sized image (usually index 1, or fallback to first available)
           const imageUrl = spotifyTrack.album.images[1]?.url || spotifyTrack.album.images[0]?.url;
-          console.log(`Data for ${song.name}:`, { imageUrl, duration: spotifyTrack.duration_ms });
+
           
           return {
             ...song,
@@ -62,7 +60,7 @@ const useSongImages = (songs: Song[]): UseSongImagesReturn => {
             duration: spotifyTrack.duration_ms
           };
         } else {
-          console.warn(`No track data found for ${song.name} (${song.spotifyId})`);
+
         }
         return song;
       });

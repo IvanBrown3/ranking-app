@@ -43,6 +43,9 @@ const styles = {
         maxWidth: "24rem", // Increased from 20rem
         listStyle: "none",
         padding: 0,
+        maxHeight: 'calc(100vh - 250px)', // Adjust based on other elements' height
+        overflowY: 'auto',
+        paddingRight: '10px', // For scrollbar spacing
     },
     listItemBase: {
         display: "flex",
@@ -55,14 +58,20 @@ const styles = {
     },
     songText: {
         fontWeight: 600,
-        marginRight: "1rem",
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
-        fontSize: "1rem", // Made explicit and slightly larger
+        fontSize: "0.9rem",
+    },
+    artistText: {
+        fontSize: '0.7rem',
+        color: 'rgba(255, 255, 255, 0.7)',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
     },
     scoreText: {
-        fontSize: "0.875rem",
+        fontSize: "0.725rem",
         lineHeight: "1.25rem",
         flexShrink: 0,
     },
@@ -183,20 +192,22 @@ const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedM
 
                         return (
                             <li key={song.id} style={listItemStyle}>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 flex-grow min-w-0">
                                     {song.imageUrl && (
                                         <img 
                                             src={song.imageUrl} 
                                             alt={`${song.name} album art`}
-                                            className="w-8 h-8 rounded object-cover"
+                                            className="w-10 h-10 rounded object-cover flex-shrink-0"
                                         />
                                     )}
-                                    <span style={styles.songText}>
-                                        {i + 1}. {song.name}
-                                    </span>
-                                </div>
-                                <div className="text-xs opacity-70">
-                                    {song.artist}
+                                    <div className="flex-grow min-w-0">
+                                        <div style={styles.songText}>
+                                            {i + 1}. {song.name}
+                                        </div>
+                                        <div style={styles.artistText}>
+                                            {song.artist}
+                                        </div>
+                                    </div>
                                 </div>
                                 <span style={styles.scoreText}>
                                     {score.toFixed(3)}
