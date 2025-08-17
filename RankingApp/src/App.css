@@ -1,1 +1,34 @@
 @import "tailwindcss";
+
+/* Global layout: lock viewport and prevent page scroll */
+html, body, #root {
+  height: 100vh;
+  overflow: hidden;      /* prevent page scrolling */
+}
+
+/* Avoid accidental horizontal scrollbars */
+body {
+  overflow-x: hidden;
+  background-color: #121212; /* match app background */
+}
+
+/* Base widths for main panes */
+.pairwise-arena-container {
+  width: 66.6667%;
+  flex: 1 1 auto;
+  padding-right: 0.5rem;
+}
+
+.ranking-list-container {
+  width: 33.3333%;
+  flex: 0 0 auto;
+  padding-left: 0.5rem;
+  margin: 0;
+}
+
+/* Large monitors: expand ranking list and shrink arena */
+@media screen and (min-width: 1920px) and (min-height: 1080px) {
+  .pairwise-arena-container {
+    width: 55% !important; /* Complements ranking list's 45% */
+  }
+}

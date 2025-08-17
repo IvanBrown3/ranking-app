@@ -7,11 +7,12 @@ import { useRanking } from "./hooks/useRanking";
 import { SPOTIFY_THEME } from "./constants/theme";
 import SpotifyService from "./services/SpotifyService";
 import type { Song, SpotifyTrack } from "./types";
+import Header from "./components/Header";
 
 const spotifyService = new SpotifyService();
 
 function App() {
-    const { songs, currentPair, ranking, progress, completedMatchups, totalMatchups, remainingMatchups, handleVote, setSongs } = useRanking();
+    const { songs, currentPair, ranking, progress, completedMatchups, totalMatchups, remainingMatchups, handleVote, setSongs, isLocked, toggleLock, reorder, swap } = useRanking();
     const [authMessage, setAuthMessage] = useState<string | null>(null);
     const [playlistUrl, setPlaylistUrl] = useState<string>("");
     const debouncedPlaylistUrl = useDebounce(playlistUrl, 500); // 500ms debounce delay
@@ -77,11 +78,16 @@ function App() {
 
     return (
         <div
-            className="flex min-h-screen w-full relative"
+            className="flex flex-col h-screen w-full relative overflow-hidden"
             style={{ background: SPOTIFY_THEME.black }}>
+            <Header 
+                playlistUrl={playlistUrl}
+                onPlaylistUrlChange={setPlaylistUrl}
+            />
+            
             {/* Authentication Message */}
             {authMessage && (
-                <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-lg text-sm font-medium ${
+                <div className={`absolute top-20 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-lg text-sm font-medium ${
                     authMessage.includes('Successfully') 
                         ? 'bg-green-600 text-white' 
                         : 'bg-red-600 text-white'
@@ -90,21 +96,25 @@ function App() {
                 </div>
             )}
             
-
-            
-            <PairwiseArena 
-                currentPair={currentPair} 
-                onVote={handleVote} 
-                playlistUrl={playlistUrl}
-                onPlaylistUrlChange={setPlaylistUrl}
-            />
-            <RankingList 
-                ranking={ranking} 
-                progress={progress} 
-                completedMatchups={completedMatchups}
-                totalMatchups={totalMatchups}
-                remainingMatchups={remainingMatchups}
-            />
+            <div className="flex flex-1 overflow-hidden">
+                <PairwiseArena 
+                    currentPair={currentPair} 
+                    onVote={handleVote} 
+                    playlistUrl={playlistUrl}
+                    onPlaylistUrlChange={setPlaylistUrl}
+                />
+                <RankingList
+                    ranking={ranking}
+                    progress={progress}
+                    completedMatchups={completedMatchups}
+                    totalMatchups={totalMatchups}
+                    remainingMatchups={remainingMatchups}
+                    isLocked={isLocked}
+                    onToggleLock={toggleLock}
+                    onReorder={reorder}
+                    onSwap={swap}
+                />
+            </div>
         </div>
     );
 }

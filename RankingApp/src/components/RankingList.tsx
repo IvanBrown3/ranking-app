@@ -8,6 +8,11 @@ interface RankingListProps {
     completedMatchups: number;
     totalMatchups: number;
     remainingMatchups: number;
+    // Lock/Swap/Drag API
+    isLocked: (songId: string) => boolean;
+    onToggleLock: (songId: string) => void;
+    onReorder: (fromIndex: number, toIndex: number) => void; // drag reorder (non-locking)
+    onSwap: (i: number, j: number) => void; // swap (non-locking)
 }
 
 // The 'as const' assertion here is the fix.
@@ -42,10 +47,9 @@ const styles = {
         marginRight: "auto",
         maxWidth: "24rem", // Increased from 20rem
         listStyle: "none",
-        padding: 0,
+        padding: "0 1rem", // Add horizontal padding to prevent clipping on scale
         maxHeight: 'calc(100vh - 250px)', // Adjust based on other elements' height
         overflowY: 'auto',
-        paddingRight: '10px', // For scrollbar spacing
     },
     listItemBase: {
         display: "flex",
@@ -74,6 +78,21 @@ const styles = {
         fontSize: "0.725rem",
         lineHeight: "1.25rem",
         flexShrink: 0,
+    },
+    lockButton: {
+        marginLeft: "0.5rem",
+        padding: "0.25rem 0.5rem",
+        borderRadius: "6px",
+        border: "none",
+        background: "transparent",
+        color: "white",
+        fontSize: "0.75rem",
+        cursor: "pointer",
+    },
+    lockIcon: {
+        width: "16px",
+        height: "16px",
+        display: "block",
     },
     progressContainer: {
         marginBottom: "1.5rem", // Increased margin
@@ -131,9 +150,16 @@ const styles = {
         borderRadius: "10px",
         animation: "shimmer 2s infinite linear",
     },
+    dragHint: {
+        color: "rgba(255,255,255,0.7)",
+        fontSize: "0.7rem",
+        marginTop: "0.25rem",
+        marginBottom: "0.5rem",
+        textAlign: "center" as const,
+    },
 } as const; // <-- This is the fix
 
-const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedMatchups, totalMatchups, remainingMatchups }) => {
+const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedMatchups, totalMatchups, remainingMatchups, isLocked, onToggleLock, onReorder, onSwap }) => {
     // Add CSS animation keyframes
     React.useEffect(() => {
         const style = document.createElement('style');
@@ -142,6 +168,45 @@ const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedM
                 0% { transform: translateX(-100%); }
                 100% { transform: translateX(100%); }
             }
+
+            /* Custom Scrollbar Styles */
+            ::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            ::-webkit-scrollbar-track {
+                background: ${SPOTIFY_THEME.black};
+            }
+
+            ::-webkit-scrollbar-thumb {
+                background: #555;
+                border-radius: 4px;
+            }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: #888;
+            }
+
+            /* Larger monitors: widen the ranking list container beyond 1/3 */
+            @media screen and (min-width: 1920px) and (min-height: 1080px) {
+                .ranking-list-container {
+                    width: 45% !important; /* reduced to give space back to arena */
+                }
+
+                /* Expand inner content widths so the extra space is used */
+                .ranking-list-content {
+                    max-width: 40rem !important; /* reduced to match narrower container */
+                    margin-left: auto !important; /* flush to right */
+                    margin-right: 0 !important;
+                }
+
+                .ranking-list-list,
+                .ranking-list-progress {
+                    max-width: 36rem !important; /* reduced to match narrower container */
+                    margin-left: auto !important; /* flush to right */
+                    margin-right: 0 !important;
+                }
+            }
         `;
         document.head.appendChild(style);
         return () => {
@@ -149,13 +214,16 @@ const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedM
         };
     }, []);
 
+    // Drag state
+    const dragIndexRef = React.useRef<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
+
     return (
-        <div style={styles.container}>
-            <div style={styles.contentWrapper}>
-                <h2 style={styles.title}>Ranking List</h2>
+        <div className="ranking-list-container" style={styles.container}>
+            <div className="ranking-list-content" style={styles.contentWrapper}>
                 
                 {/* Progress Bar */}
-                <div style={styles.progressContainer}>
+                <div className="ranking-list-progress" style={styles.progressContainer}>
                     <div style={styles.progressLabel as React.CSSProperties}>
                         Matchup Progress
                     </div>
@@ -174,9 +242,11 @@ const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedM
                         </div>
                     </div>
                 </div>
-                <ol style={styles.list}>
+                <div style={styles.dragHint}>Drag to reorder (does not lock). Click 🔒 to lock. Hold Shift and drop to swap (non-locking).</div>
+                <ol className="ranking-list-list" style={styles.list}>
                     {ranking.map(({ song, score }, i) => {
                         const isTopRanked = i === 0;
+                        const locked = isLocked(song.id);
 
                         const listItemStyle: React.CSSProperties = {
                             // Explicitly typing here is also good practice
@@ -187,11 +257,45 @@ const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedM
                             color: isTopRanked
                                 ? SPOTIFY_THEME.black
                                 : "#FFFFFF",
-                            transform: isTopRanked ? "scale(1.05)" : "scale(1)",
+                            transform: isTopRanked ? "scale(1.05)" : (dragOverIndex === i ? "scale(1.02)" : "scale(1)"),
+                            zIndex: isTopRanked ? 10 : 1,
+                            opacity: locked ? 0.9 : 1,
+                            border: dragOverIndex === i ? "2px dashed rgba(255,255,255,0.5)" : "none",
                         };
 
                         return (
-                            <li key={song.id} style={listItemStyle}>
+                            <li
+                                key={song.id}
+                                style={listItemStyle}
+                                draggable={!locked}
+                                onDragStart={(e) => {
+                                    if (locked) { e.preventDefault(); return; }
+                                    dragIndexRef.current = i;
+                                    e.dataTransfer.effectAllowed = "move";
+                                }}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    if (dragOverIndex !== i) setDragOverIndex(i);
+                                }}
+                                onDragLeave={() => setDragOverIndex((prev) => (prev === i ? null : prev))}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    const from = dragIndexRef.current;
+                                    const to = i;
+                                    setDragOverIndex(null);
+                                    dragIndexRef.current = null;
+                                    if (from === null || to === null || from === to) return;
+                                    // If target item is locked and not swapping, do nothing
+                                    if (!e.shiftKey && isLocked(song.id)) {
+                                        return;
+                                    }
+                                    if (e.shiftKey) {
+                                        onSwap(from, to);
+                                    } else {
+                                        onReorder(from, to);
+                                    }
+                                }}
+                            >
                                 <div className="flex items-center gap-3 flex-grow min-w-0">
                                     {song.imageUrl && (
                                         <img 
@@ -212,6 +316,41 @@ const RankingList: React.FC<RankingListProps> = ({ ranking, progress, completedM
                                 <span style={styles.scoreText}>
                                     {score.toFixed(3)}
                                 </span>
+                                <button
+                                    style={styles.lockButton}
+                                    onClick={() => onToggleLock(song.id)}
+                                    title={locked ? "Unlock" : "Lock at this position"}
+                                >
+                                    <svg
+                                        style={styles.lockIcon}
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden="true"
+                                    >
+                                        {/* Shackle */}
+                                        <path
+                                            d="M7 10V8a5 5 0 1110 0v2"
+                                            fill="none"
+                                            stroke="#FFFFFF"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        />
+                                        {/* Body */}
+                                        <rect
+                                            x="5"
+                                            y="10"
+                                            width="14"
+                                            height="10"
+                                            rx="2"
+                                            ry="2"
+                                            stroke="#FFFFFF"
+                                            strokeWidth="2"
+                                            fill={locked ? "#FFFFFF" : "transparent"}
+                                            style={{ transition: "fill 200ms ease" }}
+                                        />
+                                    </svg>
+                                </button>
                             </li>
                         );
                     })}

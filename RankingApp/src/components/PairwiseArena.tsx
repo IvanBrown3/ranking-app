@@ -3,7 +3,6 @@ import type { KeyboardEvent } from "react";
 import type { Song } from "../types";
 import useSpotifyPlayer from "../hooks/useSpotifyPlayer";
 import useSpotifyAuth from "../hooks/useSpotifyAuth";
-import SpotifySignIn from "./SpotifySignIn";
 
 // NOTE: The SPOTIFY_THEME constant is not defined in this file.
 // Assuming it is defined elsewhere in your project, for example:
@@ -210,8 +209,6 @@ const SongCard: React.FC<{
 const PairwiseArena: React.FC<PairwiseArenaProps> = ({
     currentPair,
     onVote,
-    playlistUrl,
-    onPlaylistUrlChange,
 }) => {
     const primaryBg = SPOTIFY_THEME.black; // A dark, Spotify-like background
     const { isAuthenticated } = useSpotifyAuth();
@@ -219,18 +216,8 @@ const PairwiseArena: React.FC<PairwiseArenaProps> = ({
 
     return (
         <main
-            className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden p-4 sm:p-6 lg:p-8 xl:p-12"
+            className="pairwise-arena-container relative flex h-screen flex-col items-center justify-center overflow-hidden p-4 sm:p-6 lg:p-8 xl:p-12"
             style={{ backgroundColor: primaryBg }}>
-            <div className="absolute top-4 left-4 z-50 flex flex-col items-start gap-4">
-                <SpotifySignIn />
-                <input 
-                    type="text" 
-                    placeholder="Enter Spotify Playlist URL"
-                    value={playlistUrl}
-                    onChange={(e) => onPlaylistUrlChange(e.target.value)}
-                    className="px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-spotify-green w-64"
-                />
-            </div>
             <div className="w-full max-w-4xl xl:max-w-6xl 2xl:max-w-7xl text-center">
                 {/* Header */}
                 <div className="mb-8 xl:mb-12">
